@@ -168,6 +168,7 @@ class dataLoader(object):
         # 测试集dataloader 做为 验证集dataloader
         return siamese_train_loader, siamese_test_loader, siamese_test_loader
 
+
 class ISARDataset(MNIST):
     def __init__(self, data, label, train=False, test=False):
         self.train = False
@@ -205,21 +206,36 @@ class SiameseISAR(Dataset):
             self.label_to_indices = {label: np.where(self.test_labels == label)[0]
                                      for label in self.labels_set}
 
-            random_state = np.random.RandomState(29)
-            # 构造同类样本集
-            positive_pairs = [[i,
-                               random_state.choice(self.label_to_indices[self.test_labels[i].item()]),
-                               1]
-                              for i in range(0, len(self.test_data), 2)]
-            # 构造不同类样本集
-            negative_pairs = [[i,
-                               random_state.choice(self.label_to_indices[
-                                                       np.random.choice(
-                                                           list(self.labels_set - set([self.test_labels[i].item()]))
-                                                       )
-                                                   ]),
-                               0]
-                              for i in range(1, len(self.test_data), 2)]
+            positive_pairs = []
+            for i in range(0,len(self.test_data),1) :
+                positive_idx_list = self.label_to_indices[self.test_labels[i].item()]
+                positive_all_temp = []
+
+                for _, idx in enumerate(positive_idx_list):
+                    if idx == i:
+                        continue
+                    positive_temp = [(i, self.test_labels[i].item()), (idx, self.test_labels[idx].item()), 1 ]
+                    positive_all_temp.append(positive_temp)
+
+                positive_pairs.append(positive_all_temp)
+
+            negative_pairs = []
+            for i in range(0, len(self.test_data), 1):
+                negative_label_set = list(self.labels_set - set([self.test_labels[i].item()]))
+                negative_idx_list = []
+                for _, label in enumerate(negative_label_set):
+                    negative_idx_list.extend(self.label_to_indices[label])
+                negative_all_temp = []
+
+                for _, idx in enumerate(negative_idx_list):
+                    if idx == i:
+                        continue
+                    negative_temp = [(i, self.test_labels[i].item()), (idx, self.test_labels[idx].item()), 0 ]
+                    negative_all_temp.append(negative_temp)
+                negative_pairs.append(negative_all_temp)
+
+            self.positive_pairs = np.array(positive_pairs)
+            self.negative_pairs = np.array(negative_pairs)
             self.test_pairs = positive_pairs + negative_pairs
 
     def __getitem__(self, index):
@@ -234,15 +250,43 @@ class SiameseISAR(Dataset):
                 siamese_label = np.random.choice(list(self.labels_set - set([label1])))
                 siamese_index = np.random.choice(self.label_to_indices[siamese_label])
             img2 = self.train_data[siamese_index]
+            return (img1, img2), target
         else:
-            img1 = self.test_data[self.test_pairs[index][0]]
-            img2 = self.test_data[self.test_pairs[index][1]]
-            target = self.test_pairs[index][2]
+            # @TODO:修改test_dataloader
+            positive_pairs_idx = np.array(self.positive_pairs[index])
+            negative_pairs_idx = np.array(self.negative_pairs[index])
+            pos_arr_0 = np.zeros(len(positive_pairs_idx), dtype=int)
+            pos_arr_1 = np.zeros(len(positive_pairs_idx), dtype=int)
+            neg_arr_0 = np.zeros(len(negative_pairs_idx), dtype=int)
+            neg_arr_1 = np.zeros(len(negative_pairs_idx), dtype=int)
+            idx = 0
+            for pos, neg in zip(positive_pairs_idx, negative_pairs_idx):
+                pos_arr_0[idx], pos_arr_1[idx] = int(pos[0][0]), int(pos[1][0])
+                neg_arr_0[idx], neg_arr_1[idx] = int(neg[0][0]), int(neg[1][0])
+                idx += 1
+            print("debug")
+            pos_arr_0 = pos_arr_0.tolist()
+            pos_arr_1 = pos_arr_1.tolist()
+            neg_arr_0 = neg_arr_0.tolist()
+            neg_arr_1 = neg_arr_1.tolist()
+            percent = 0.05
+            pos_num = len(pos_arr_1)
+            neg_num = len(neg_arr_1)
+            pos_num_select = int(percent * pos_num)
+            neg_num_select = int(percent * neg_num)
+            arr = np.arange(pos_num)
+            np.random.shuffle(arr)
+            pos_arr_0_ = np.array(pos_arr_0)[arr[:pos_num_select]].tolist()
+            pos_arr_1_ = np.array(pos_arr_1)[arr[:pos_num_select]].tolist()
 
-        # img1 = Image.fromarray(img1.numpy(), mode='L')
-        # img2 = Image.fromarray(img2.numpy(), mode='L')
+            arr = np.arange(neg_num)
+            np.random.shuffle(arr)
+            neg_arr_0_ = np.array(neg_arr_0)[arr[:neg_num_select]].tolist()
+            neg_arr_1_ = np.array(neg_arr_1)[arr[:neg_num_select]].tolist()
 
-        return (img1, img2), target
+            return (self.test_data[pos_arr_0_], self.test_data[pos_arr_1_]), (self.test_labels[pos_arr_0_], self.test_labels[pos_arr_1_]), \
+                   (self.test_data[neg_arr_0_], self.test_data[neg_arr_1_]), (self.test_labels[neg_arr_0_], self.test_labels[neg_arr_1_]),
+
 
     def __len__(self):
         return len(self.dataset)

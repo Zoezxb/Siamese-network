@@ -49,3 +49,4 @@ def train(args):
             if batch_idx % log_interval == 0:
                 total_loss = loss.item()
                 print('Epoch: ', epoch, 'batch:', batch_idx, '| train loss: %.4f' % total_loss)
+        args.model = model

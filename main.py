@@ -3,6 +3,7 @@ import argparse
 import os
 import time
 from train import *
+from test import *
 import torch
 import torch.nn as nn
 import logging
@@ -37,10 +38,10 @@ parser.add_argument('--load_data_type', type=int, default=BY_N_PER_CLASS,
 parser.add_argument('--lr', type=float, default=0.003, metavar='N',
                     help='leraning rate (default: 0.003)')
 
-parser.add_argument('--batch_size', type=int, default=64, metavar='N',
+parser.add_argument('--batch_size', type=int, default=4, metavar='N',
                     help='input batch size  (default: 64)')
 
-parser.add_argument('--epoch', type=int, default=100, metavar='N',
+parser.add_argument('--epoch', type=int, default=2, metavar='N',
                     help='train epoch (default: 100)')
 
 parser.add_argument('--best_model_path', type=str, default=r'.\实验结果',
@@ -72,6 +73,7 @@ if __name__ == "__main__":
     # args.train_dataloader, args.val_dataloader, args.test_dataloader = dataLoader.MNIST_data_loader(mean = 0.1307, std = 0.3081)
 
     train(args)
+    test(args)
 
 
 
